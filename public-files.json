@@ -1,0 +1,19 @@
+[
+  ".gitattributes",
+  ".github/workflows/manual-validation.yml",
+  ".gitignore",
+  "AGENTS.md",
+  "LICENSE",
+  "README.md",
+  "docs/MAINTENANCE.md",
+  "docs/RECOVERY.md",
+  "docs/RESULTS.md",
+  "docs/results.json",
+  "public-files.json",
+  "scripts/Benchmark-Tensor.py",
+  "scripts/Cleanup-Project.ps1",
+  "scripts/Export-Results.ps1",
+  "scripts/Get-StartupStatus.ps1",
+  "scripts/Sync-Project.ps1",
+  "scripts/Validate-PublicProject.ps1"
+]

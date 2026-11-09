@@ -1,0 +1,32 @@
+# Publish an explicit, reviewed subset; local boot/recovery material stays private.
+/*
+!/.gitignore
+!/.gitattributes
+!/README.md
+!/AGENTS.md
+!/LICENSE
+!/public-files.json
+!/scripts/
+!/scripts/*.ps1
+!/scripts/Benchmark-Tensor.py
+!/docs/
+!/docs/*.md
+!/docs/results.json
+!/.github/
+!/.github/workflows/
+!/.github/workflows/manual-validation.yml
+
+# Never publish credentials, certificates, binaries, caches or raw local records.
+**/*.key
+**/*.pem
+**/*.pfx
+**/*.p12
+**/*.cer
+**/*.der
+**/*.efi
+**/*.EFI
+**/*.exe
+**/*.bin
+**/__pycache__/
+/.local/
+/test-v2.1.11/

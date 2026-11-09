@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "verified_at_utc": "2026-11-09T00:02:55.3599325+00:00",
+  "platform": {
+    "laptop": "MSI Vector GP76 12UHSO",
+    "gpu": "NVIDIA GeForce RTX 3080 Ti Laptop GPU, 16 GB",
+    "driver": "621.14",
+    "unlocker": "v2.1.11"
+  },
+  "setup": {
+    "automatic_startup": true,
+    "usb_required": false,
+    "graphics_mode": "Discrete Graphics",
+    "fast_startup_enabled": false,
+    "secure_boot": true,
+    "bitlocker_protection": "On",
+    "encryption_percent": 100,
+    "memory_integrity": true,
+    "shim_verification": true,
+    "tpm_pcrs": [
+      0,
+      2,
+      4,
+      11
+    ],
+    "pcr_policy_manually_modified": false
+  },
+  "validation": {
+    "protected_restart_before": "On",
+    "protected_restart_after": "On",
+    "recovery_prompt_observed": false,
+    "suspension_requested": false,
+    "numerical_checks": "CPU FP64 reference on separate small GEMMs; large-GEMM finite checks and sample hashes matched stock"
+  },
+  "performance": [
+    {
+      "mode": "fp16",
+      "stock_tflops": 45.106674556379964,
+      "unlocked_tflops": 70.8980301677727,
+      "gain_percent": 57.178579146098386,
+      "sample_hash_matched": true
+    },
+    {
+      "mode": "bf16",
+      "stock_tflops": 46.38995226647233,
+      "unlocked_tflops": 80.22690134135549,
+      "gain_percent": 72.94025413201024,
+      "sample_hash_matched": true
+    },
+    {
+      "mode": "fp32_control",
+      "stock_tflops": 14.144862685216424,
+      "unlocked_tflops": 14.284465628056836,
+      "gain_percent": 0.9869515593553091,
+      "sample_hash_matched": true
+    }
+  ],
+  "observations": {
+    "peak_temperature_c": 77.94,
+    "peak_power_w": 175.77,
+    "thermal_slowdown_samples": 0,
+    "gpu_whea_warnings_errors": 0,
+    "known_warning": "Scrubber timed out; loader proceeded, as in the previous plain-UEFI test"
+  },
+  "limitations": [
+    "Experimental setup; long-duration and sleep/resume behavior not validated",
+    "Sleep, hibernation or GPU power-off can reset the volatile unlock",
+    "Boot/firmware updates may reorder the entry or trigger BitLocker recovery",
+    "Desktop clocks not pinned; performance is from GEMM benchmarks, not an end-to-end application guarantee"
+  ]
+}
