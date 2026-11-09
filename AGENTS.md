@@ -19,8 +19,8 @@
 
 ## Regular sync and low GitHub usage
 
-- Daily local sync is the default. Use `scripts/Sync-Project.ps1 -Push`; it validates public files, processes verified scratch cleanup, fetches once, and commits/pushes only when needed.
+- Daily local sync is the default. Use `scripts/Sync-Project.ps1 -Push -RefreshResults`; it holds a project lock, refreshes the sanitized result only when changed, validates public files, processes verified scratch cleanup, fetches once, and commits/pushes only when needed. Without `-Push`, it is a read-only offline preview.
 - Keep GitHub Actions manual-only (`workflow_dispatch`). Do not add push, pull-request, or scheduled triggers without a new user instruction. Routine sync requires no Actions run.
 - No force pushes, automatic history rewriting, broad `git add -A`, repository-wide artifact deletion, or changes to other GitHub repositories.
-- Stop and report remote divergence or unsafe incoming files rather than discarding changes. Use authenticated Git/GitHub CLI without printing tokens.
+- Validate fetched blobs before checkout. Incoming scripts, workflows, allowlist, ignore rules or agent instructions require manual review. Stop and report remote divergence, an unfinished Git operation or unsafe incoming files rather than discarding changes. Use authenticated Git/GitHub CLI without printing tokens.
 - Recurring maintenance must never reboot the PC, run GPU benchmarks, install firmware/drivers, enroll keys, or suspend encryption.

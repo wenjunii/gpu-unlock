@@ -3,7 +3,18 @@ $ErrorActionPreference='Stop'
 $taskRoot=Split-Path $PSScriptRoot -Parent
 if(-not (Test-Path -LiteralPath $LocalReportPath -PathType Leaf)) { Write-Output 'No private final report; retained the published aggregate.'; return }
 $taskReport=Get-Content -LiteralPath $LocalReportPath -Raw | ConvertFrom-Json
-if($taskReport.State -ne 'Complete' -or -not $taskReport.AutomaticStartupVerified -or -not $taskReport.ProtectedRestart.UserConfirmedNoRecoveryPrompt) { throw 'Only a completed protected-startup report may be exported.' }
+if($taskReport.State -ne 'Complete') { throw 'Only a completed protected-startup report may be exported.' }
+foreach($taskFlag in @($taskReport.AutomaticStartupVerified,$taskReport.ProtectedRestart.UserConfirmedNoRecoveryPrompt,$taskReport.Security.SecureBoot,$taskReport.Security.MemoryIntegrity,$taskReport.Security.ShimSignatureVerificationActive)) {
+    if($taskFlag -isnot [bool] -or -not $taskFlag) { throw 'Protected-startup verification flags must be Boolean true.' }
+}
+if($taskReport.ProtectedRestart.Before -ne 'On' -or $taskReport.ProtectedRestart.After -ne 'On' -or $taskReport.Security.BitLockerProtection -ne 'On' -or $taskReport.Security.EncryptionPercentage -ne 100 -or $taskReport.ProtectedRestart.AgentRequestedSuspension -isnot [bool] -or $taskReport.ProtectedRestart.AgentRequestedSuspension) { throw 'A fully protected restart is required for the public result.' }
+if(@($taskReport.Security.TPMPCRProfiles).Count -ne 1) { throw 'An unambiguous TPM profile is required.' }
+$taskModes=@($taskReport.Performance | ForEach-Object {$_.Mode})
+if($taskModes.Count -ne 3 -or @($taskModes | Select-Object -Unique).Count -ne 3 -or @(Compare-Object @('fp16','bf16','fp32_control') $taskModes).Count) { throw 'The three matched benchmark modes are required.' }
+foreach($taskMode in $taskReport.Performance) {
+    foreach($taskNumber in @($taskMode.StockTFLOPS,$taskMode.SecureBootTFLOPS)) { if($null -eq $taskNumber -or [double]::IsNaN([double]$taskNumber) -or [double]::IsInfinity([double]$taskNumber) -or [double]$taskNumber -le 0) { throw 'Benchmark throughput must be finite and positive.' } }
+    if($taskMode.SampleHashMatches -isnot [bool] -or -not $taskMode.SampleHashMatches) { throw 'Matched numerical checks are required.' }
+}
 # Explicit field selection: never serialize the raw report or nested evidence wholesale.
 $taskPublic=[ordered]@{
     schema_version=1;verified_at_utc=([datetimeoffset]$taskReport.CompletedUtc).ToUniversalTime().ToString('o');
@@ -15,6 +26,13 @@ $taskPublic=[ordered]@{
     limitations=@($taskReport.Limitations)
 }
 $taskDestination=Join-Path $taskRoot 'docs/results.json'
-$taskText=($taskPublic | ConvertTo-Json -Depth 8)+"`n"
-if(-not (Test-Path -LiteralPath $taskDestination) -or [IO.File]::ReadAllText($taskDestination) -cne $taskText) { [IO.File]::WriteAllText($taskDestination,$taskText,(New-Object Text.UTF8Encoding($false))) }
-Write-Output 'Sanitized aggregate results exported.'
+$taskComparable=$taskPublic | ConvertTo-Json -Depth 8 -Compress
+if(Test-Path -LiteralPath $taskDestination) {
+    $taskExisting=Get-Content -LiteralPath $taskDestination -Raw | ConvertFrom-Json
+    # PS7 can decode date strings automatically; PS5 leaves them as strings.
+    $taskExisting.verified_at_utc=([datetimeoffset]$taskExisting.verified_at_utc).ToUniversalTime().ToString('o')
+    if(($taskExisting | ConvertTo-Json -Depth 8 -Compress) -ceq $taskComparable) { Write-Output 'Sanitized aggregate already current; no file rewrite.'; return }
+}
+$taskText=(($taskPublic | ConvertTo-Json -Depth 8) -replace "`r`n","`n")+"`n"
+[IO.File]::WriteAllText($taskDestination,$taskText,(New-Object Text.UTF8Encoding($false)))
+Write-Output 'Sanitized aggregate results updated.'

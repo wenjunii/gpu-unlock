@@ -54,6 +54,15 @@ The loader still reports a **scrubber timeout** and proceeds. Its remaining tran
 
 ## Included tools
 
+| Script | Purpose |
+| --- | --- |
+| `Get-StartupStatus.ps1` | Read-only status snapshot; unavailable fields are `null` with notes |
+| `Benchmark-Tensor.py` | Matched CUDA GEMM benchmark; run explicitly when needed |
+| `Export-Results.ps1` | Export completed, protected-startup results without formatting-only rewrites |
+| `Validate-PublicProject.ps1` | Check publication paths, privacy, syntax, result fields and manual-only Actions |
+| `Cleanup-Project.ps1` | Recycle exact, verified scratch files from the private cleanup manifest |
+| `Sync-Project.ps1` | Preview or run guarded cleanup, validation, refresh and Git synchronization |
+
 ```powershell
 # Read status; an Administrator shell supplies the complete BitLocker/Secure Boot status.
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Get-StartupStatus.ps1
@@ -64,9 +73,15 @@ python .\scripts\Benchmark-Tensor.py --label current --output .\.local\results\b
 
 # Validate the public source without running a GPU benchmark or an Actions workflow.
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Validate-PublicProject.ps1
+
+# Preview only: no cleanup, result refresh, network access, commit or push.
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Sync-Project.ps1
+
+# Run the same maintenance pipeline used by the daily job.
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Sync-Project.ps1 -Push -RefreshResults
 ```
 
-The benchmark retains the tested GPU identity guard. Status flags alone do not prove the tensor unlock; compare throughput and firmware evidence.
+The PowerShell tools support Windows PowerShell 5.1 and PowerShell 7. The benchmark retains the tested GPU identity guard. Status flags alone do not prove the tensor unlock; compare throughput and firmware evidence. These maintenance commands do not change the installed GPU boot configuration.
 
 ## Recovery and local material
 
@@ -78,7 +93,9 @@ The ignored `test-v2.1.11/` directory contains the operational helpers, verified
 
 Completed disposable task artifacts are cleaned automatically after verification, preferably to the Recycle Bin. Active tools, source, reference inputs, user outputs, shared models and recovery backups are preserved. New scratch cleanup is limited to exact verified files in `.local/tmp/`; see [maintenance](docs/MAINTENANCE.md) and [AGENTS.md](AGENTS.md).
 
-Regular sync runs locally once daily, with a single remote fetch and a commit/push only when needed. Only files in `public-files.json` can be synced. The one GitHub Actions workflow is **manual-only**: pushes, pull requests and schedules do not start it. Local scheduled work requires this PC and the desktop app to be running. [OpenAI scheduled-task guidance](https://developers.openai.com/training/walkthroughs/scheduled-tasks).
+Regular sync runs locally at **09:15 America/New_York**, with a single remote fetch and a commit/push only when needed. A per-project lock prevents overlapping runs. Fetched content is inspected before checkout; incoming executable or maintenance-policy changes require review, while clean documentation-only updates may fast-forward. Divergence and unfinished Git operations stop automatic sync.
+
+Only files in `public-files.json` can be synced. The one GitHub Actions workflow is **manual-only**: pushes, pull requests and schedules do not start it. Local scheduled work requires this PC and the desktop app to be running. [OpenAI scheduled-task guidance](https://developers.openai.com/training/walkthroughs/scheduled-tasks).
 
 ## Upstream projects and licensing
 
