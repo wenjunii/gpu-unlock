@@ -61,7 +61,7 @@ The loader still reports a **scrubber timeout** and proceeds. Its remaining tran
 | `Export-Results.ps1` | Export completed, protected-startup results without formatting-only rewrites |
 | `Validate-PublicProject.ps1` | Check publication paths, privacy, syntax, result fields and manual-only Actions |
 | `Cleanup-Project.ps1` | Recycle exact, verified scratch files from the private cleanup manifest |
-| `Sync-Project.ps1` | Preview or run guarded cleanup, validation, refresh and Git synchronization |
+| `Sync-Project.ps1` | Validate and sync public files through the GitHub review branch |
 
 ```powershell
 # Read status and recent startup events. Use an Administrator shell for live protection queries.
@@ -77,7 +77,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Validate-PublicPro
 # Preview only: no cleanup, result refresh, network access, commit or push.
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Sync-Project.ps1
 
-# Run the same maintenance pipeline used by the daily job.
+# Run the daily maintenance pipeline and prepare changed public files for review.
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Sync-Project.ps1 -Push -RefreshResults
 ```
 
@@ -93,9 +93,11 @@ The ignored `test-v2.1.11/` directory contains the operational helpers, verified
 
 Completed disposable task artifacts are cleaned automatically after verification, preferably to the Recycle Bin. Active tools, source, reference inputs, user outputs, shared models and recovery backups are preserved. New scratch cleanup is limited to exact verified files in `.local/tmp/`; see [maintenance](docs/MAINTENANCE.md) and [AGENTS.md](AGENTS.md).
 
-Regular sync runs locally at **09:15 America/New_York**, with a single remote fetch and a commit and push only when needed. A per-project lock prevents overlapping runs. The script checks fetched commits before checkout, staged content before commit, and unpublished commits before push. Incoming executable or maintenance-policy changes, divergence, and unfinished Git operations stop automatic sync.
+Regular sync runs locally at **09:15 America/New_York**. It fetches once and pushes validated public changes to `sync/gpu-project/review`. The same branch is reused, and a repeated run with the same files skips the push. To publish to protected `main`, open a pull request from the review branch and choose **Create a merge commit** so the published commits stay in the local history.
 
-Only files in `public-files.json` can be synced. The one GitHub Actions workflow is **manual-only**: pushes, pull requests and schedules do not start it. Local scheduled work requires this PC and the desktop app to be running. [OpenAI scheduled-task guidance](https://developers.openai.com/training/walkthroughs/scheduled-tasks).
+A per-project lock prevents overlapping runs. Sync validates fetched commits before checkout and staged and unpublished files before push. It can fast-forward to a pull-request merge whose incoming commits contain exactly the local files. Incoming executable or maintenance-policy changes, divergence, and unfinished Git operations require review.
+
+Only files in `public-files.json` can be synced. The repository’s validation workflow runs **manually**. GitHub can run its separate CodeQL checks automatically. Local scheduled work requires this PC and the desktop app to be running. [OpenAI scheduled-task guidance](https://developers.openai.com/training/walkthroughs/scheduled-tasks).
 
 ## Upstream projects and licensing
 
