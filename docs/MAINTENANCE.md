@@ -16,13 +16,16 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Sync-Project.ps1 -
 
 # Inspect an already-fetched commit without checking it out or running its scripts
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Validate-PublicProject.ps1 -Revision origin/main
+
+# Inspect the exact files Git would commit from the index
+powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Validate-PublicProject.ps1 -Staged
 ```
 
 Export requires a completed protected restart, Boolean verification flags and matched finite benchmark measurements. It writes aggregate fields to `docs/results.json`; unchanged data is left byte-for-byte intact even when PowerShell versions format JSON differently. No private report is needed to use a public clone.
 
-Without `-Push`, sync is an offline, read-only preview. `-RefreshResults` requires `-Push`. A real run holds a per-project lock, optionally refreshes results, validates, processes registered scratch cleanup, and fetches once. A clean checkout may fast-forward documentation changes after the fetched Git blobs pass the current trusted validator. Incoming script, workflow, allowlist or maintenance-policy changes require manual review before checkout. Diverged history, an unfinished Git operation, an unexpected remote, or another Git root stops the run. There are no force pushes or automatic rebases.
+Without `-Push`, sync is an offline, read-only preview. `-RefreshResults` requires `-Push`. A real run holds a per-project lock, optionally refreshes results, validates, processes registered scratch cleanup, and fetches once. A clean checkout can fast-forward documentation changes after every incoming commit passes the current validator. Changes to scripts, workflows, or the publication and maintenance rules anywhere in the incoming history require manual review. The run also stops on diverged history, unfinished Git operations, an unexpected Git root, or a fetch or push URL outside the public destination.
 
-Only changed public files are committed and pushed. Nested result fields are also allowlisted. Status diagnostics return `null` and explanatory notes for unavailable information instead of interpreting a failed query as Off.
+Sync checks the staged blobs before committing and validates each unpublished commit before pushing the validated tip. This scan covers files that were added and later removed on the local branch. Git objects under public paths must be regular files. Nested result fields are also allowlisted.
 
 ## Automatic cleanup
 

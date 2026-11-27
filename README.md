@@ -32,7 +32,7 @@ Matched PyTorch matrix multiplication on the same laptop and driver:
 
 The final check was a normal USB-free restart with BitLocker already protecting the drive. No suspension or boot-order change was requested for that check, and Windows started without a recovery-key prompt. Fresh firmware logs showed automatic execution and successful handoff; numerical checks passed. No GPU/WHEA warnings/errors or thermal-slowdown samples were observed during the final benchmark.
 
-These are GEMM throughput measurements, not a promised application speedup. See [results and methodology](docs/RESULTS.md) and the [sanitized result data](docs/results.json).
+These GEMM measurements apply to the tested v2.1.11 and driver 621.14 combination. Measuring a later driver or unlocker build requires a new matched pair. See [results and methodology](docs/RESULTS.md) and the [sanitized result data](docs/results.json).
 
 ## Boot chain and security
 
@@ -56,7 +56,7 @@ The loader still reports a **scrubber timeout** and proceeds. Its remaining tran
 
 | Script | Purpose |
 | --- | --- |
-| `Get-StartupStatus.ps1` | Read-only status snapshot; unavailable fields are `null` with notes |
+| `Get-StartupStatus.ps1` | Read-only status snapshot and recent BitLocker startup history |
 | `Benchmark-Tensor.py` | Matched CUDA GEMM benchmark; run explicitly when needed |
 | `Export-Results.ps1` | Export completed, protected-startup results without formatting-only rewrites |
 | `Validate-PublicProject.ps1` | Check publication paths, privacy, syntax, result fields and manual-only Actions |
@@ -64,7 +64,7 @@ The loader still reports a **scrubber timeout** and proceeds. Its remaining tran
 | `Sync-Project.ps1` | Preview or run guarded cleanup, validation, refresh and Git synchronization |
 
 ```powershell
-# Read status; an Administrator shell supplies the complete BitLocker/Secure Boot status.
+# Read status and recent startup events. Use an Administrator shell for live protection queries.
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Get-StartupStatus.ps1
 
 # Use an existing CUDA-enabled PyTorch environment; this runs a GPU workload.
@@ -81,7 +81,7 @@ powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Sync-Project.ps1
 powershell -NoProfile -ExecutionPolicy Bypass -File .\scripts\Sync-Project.ps1 -Push -RefreshResults
 ```
 
-The PowerShell tools support Windows PowerShell 5.1 and PowerShell 7. The benchmark retains the tested GPU identity guard. Status flags alone do not prove the tensor unlock; compare throughput and firmware evidence. These maintenance commands do not change the installed GPU boot configuration.
+The PowerShell tools support Windows PowerShell 5.1 and PowerShell 7. The status report counts recorded TPM v2 and recovery-password startups over 14 days by default. Set `-BootHistoryDays` for a different window. Unavailable queries appear as `null` with notes. Use throughput and firmware evidence to verify the tensor unlock.
 
 ## Recovery and local material
 
@@ -93,7 +93,7 @@ The ignored `test-v2.1.11/` directory contains the operational helpers, verified
 
 Completed disposable task artifacts are cleaned automatically after verification, preferably to the Recycle Bin. Active tools, source, reference inputs, user outputs, shared models and recovery backups are preserved. New scratch cleanup is limited to exact verified files in `.local/tmp/`; see [maintenance](docs/MAINTENANCE.md) and [AGENTS.md](AGENTS.md).
 
-Regular sync runs locally at **09:15 America/New_York**, with a single remote fetch and a commit/push only when needed. A per-project lock prevents overlapping runs. Fetched content is inspected before checkout; incoming executable or maintenance-policy changes require review, while clean documentation-only updates may fast-forward. Divergence and unfinished Git operations stop automatic sync.
+Regular sync runs locally at **09:15 America/New_York**, with a single remote fetch and a commit and push only when needed. A per-project lock prevents overlapping runs. The script checks fetched commits before checkout, staged content before commit, and unpublished commits before push. Incoming executable or maintenance-policy changes, divergence, and unfinished Git operations stop automatic sync.
 
 Only files in `public-files.json` can be synced. The one GitHub Actions workflow is **manual-only**: pushes, pull requests and schedules do not start it. Local scheduled work requires this PC and the desktop app to be running. [OpenAI scheduled-task guidance](https://developers.openai.com/training/walkthroughs/scheduled-tasks).
 

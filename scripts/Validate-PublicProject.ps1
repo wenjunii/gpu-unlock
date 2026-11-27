@@ -1,10 +1,16 @@
-param([string]$Revision)
+[CmdletBinding(DefaultParameterSetName='WorkingTree')]
+param(
+    [Parameter(Mandatory,ParameterSetName='Revision')]
+    [ValidateNotNullOrEmpty()][string]$Revision,
+    [Parameter(Mandatory,ParameterSetName='Index')]
+    [switch]$Staged
+)
 $ErrorActionPreference='Stop'
 $taskRoot=[IO.Path]::GetFullPath((Split-Path $PSScriptRoot -Parent))
 $taskGitRoot=(& git -C $taskRoot rev-parse --show-toplevel) -join ''
 if($LASTEXITCODE -ne 0 -or [IO.Path]::GetFullPath($taskGitRoot) -ine $taskRoot) { throw 'Refusing validation against another Git root.' }
 function Invoke-ValidationGit([string[]]$GitArguments) {
-    $taskResult=@(& git -C $taskRoot @GitArguments)
+    $taskResult=@(& git --no-optional-locks --no-replace-objects -C $taskRoot @GitArguments)
     if($LASTEXITCODE -ne 0) { throw 'Git object inspection failed.' }
     return $taskResult
 }
@@ -14,15 +20,36 @@ if($Revision) {
     $taskRevisionSHA=(Invoke-ValidationGit -GitArguments @('rev-parse','--verify',($Revision+'^{commit}'))) -join ''
     if($taskRevisionSHA -notmatch '^(?:[a-fA-F0-9]{40}|[a-fA-F0-9]{64})$') { throw 'Invalid commit object.' }
 }
+
+$taskBlobIds=$null
+$taskLocation='working tree'
+if($taskRevisionSHA -or $Staged) {
+    if($Staged) {
+        $taskEntries=@(Invoke-ValidationGit -GitArguments @('ls-files','--stage'))
+        $taskEntryPattern='^100(?:644|755) (?<oid>[a-f0-9]{40}|[a-f0-9]{64}) 0\t(?<path>.+)$'
+        $taskLocation='staged index'
+    } else {
+        $taskEntries=@(Invoke-ValidationGit -GitArguments @('ls-tree','-r','--full-tree',$taskRevisionSHA))
+        $taskEntryPattern='^100(?:644|755) blob (?<oid>[a-f0-9]{40}|[a-f0-9]{64})\t(?<path>.+)$'
+        $taskLocation='commit '+$taskRevisionSHA
+    }
+    $taskBlobIds=[Collections.Generic.Dictionary[string,string]]::new([StringComparer]::Ordinal)
+    foreach($taskEntry in $taskEntries) {
+        if($taskEntry -cnotmatch $taskEntryPattern) { throw ('Expected regular public files in the '+$taskLocation+'.') }
+        $taskBlobIds.Add($Matches['path'],$Matches['oid'])
+    }
+}
+
 function Get-PublicText([string]$RelativePath) {
     if($RelativePath -notmatch '^[A-Za-z0-9_./-]+$' -or $RelativePath -match '(^|/)\.\.(/|$)' -or [IO.Path]::IsPathRooted($RelativePath)) { throw 'Invalid public relative path.' }
-    if($taskRevisionSHA) {
-        $taskObject=$taskRevisionSHA+':'+$RelativePath
+    if($null -ne $taskBlobIds) {
+        $taskObject=$null
+        if(-not $taskBlobIds.TryGetValue($RelativePath,[ref]$taskObject)) { throw ('Missing public Git blob: '+$RelativePath) }
         $taskSize=[int64]((Invoke-ValidationGit -GitArguments @('cat-file','-s',$taskObject)) -join '')
         if($taskSize -gt 262144) { throw ('Oversized public blob: '+$RelativePath) }
         $taskInfo=New-Object Diagnostics.ProcessStartInfo
         $taskInfo.FileName=(Get-Command git -CommandType Application | Select-Object -First 1).Source
-        $taskInfo.Arguments='-C "'+$taskRoot+'" cat-file blob '+$taskObject
+        $taskInfo.Arguments='--no-replace-objects -C "'+$taskRoot+'" cat-file blob '+$taskObject
         $taskInfo.UseShellExecute=$false; $taskInfo.CreateNoWindow=$true
         $taskInfo.RedirectStandardOutput=$true; $taskInfo.RedirectStandardError=$true
         $taskProcess=New-Object Diagnostics.Process; $taskProcess.StartInfo=$taskInfo
@@ -42,10 +69,10 @@ function Get-PublicText([string]$RelativePath) {
 }
 $taskAllowed=Get-Content -LiteralPath (Join-Path $taskRoot 'public-files.json') -Raw | ConvertFrom-Json
 if(@($taskAllowed).Count -ne @($taskAllowed | Select-Object -Unique).Count) { throw 'Publication allowlist has duplicate paths.' }
-if($taskRevisionSHA) {
-    $taskVisible=@(Invoke-ValidationGit -GitArguments @('ls-tree','-r','--name-only',$taskRevisionSHA))
-    $taskIncomingAllowed=(Get-PublicText 'public-files.json') | ConvertFrom-Json
-    if(($taskAllowed -join "`n") -cne ($taskIncomingAllowed -join "`n")) { throw 'Fetched publication allowlist requires manual review.' }
+if($null -ne $taskBlobIds) {
+    $taskVisible=@($taskBlobIds.Keys)
+    $taskGitAllowed=(Get-PublicText 'public-files.json') | ConvertFrom-Json
+    if(($taskAllowed -join "`n") -cne ($taskGitAllowed -join "`n")) { throw ('Publication allowlist in the '+$taskLocation+' requires manual review.') }
 } else { $taskVisible=@(Invoke-ValidationGit -GitArguments @('ls-files','--cached','--others','--exclude-standard')) }
 foreach($taskRel in $taskVisible) { if($taskAllowed -cnotcontains $taskRel) { throw ('Unlisted public Git candidate: '+$taskRel) } }
 if(@(Compare-Object @($taskAllowed) @($taskVisible | Select-Object -Unique)).Count) { throw 'Public candidate tree is incomplete.' }
@@ -93,5 +120,5 @@ if($taskOn.Count -ne 1 -or @($taskRootKeys | Select-Object -Unique).Count -ne $t
 $taskEvents=@(for($taskIndex=$taskOn[0]+1;$taskIndex -lt $taskLines.Count;$taskIndex++) { $taskLine=$taskLines[$taskIndex]; if($taskLine -match '^\S'){break}; if($taskLine.Trim() -and $taskLine.Trim() -notmatch '^#'){$taskLine.Trim()} })
 if($taskEvents.Count -ne 1 -or $taskEvents[0] -cne 'workflow_dispatch:') { throw 'Actions must remain manual-only.' }
 $taskPython=Get-Command python -CommandType Application -ErrorAction SilentlyContinue | Select-Object -First 1
-if($taskPython -and -not $taskRevisionSHA) { & $taskPython.Source -c 'import ast,pathlib,sys; ast.parse(pathlib.Path(sys.argv[1]).read_bytes())' (Join-Path $taskRoot 'scripts/Benchmark-Tensor.py'); if($LASTEXITCODE -ne 0) { throw 'Python source failed syntax validation.' } }
-Write-Output ('Validated '+@($taskAllowed).Count+' public files'+$(if($taskRevisionSHA){' at '+$taskRevisionSHA}else{''})+'; private workspace excluded; Actions manual-only.')
+if($taskPython -and $null -eq $taskBlobIds) { & $taskPython.Source -c 'import ast,pathlib,sys; ast.parse(pathlib.Path(sys.argv[1]).read_bytes())' (Join-Path $taskRoot 'scripts/Benchmark-Tensor.py'); if($LASTEXITCODE -ne 0) { throw 'Python source failed syntax validation.' } }
+Write-Output ('Validated '+@($taskAllowed).Count+' public files in the '+$taskLocation+'; private workspace excluded; Actions manual-only.')

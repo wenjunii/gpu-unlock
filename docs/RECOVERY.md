@@ -6,6 +6,10 @@ Press **F11** at power-on and choose **Windows Boot Manager**. A different measu
 
 To keep stock startup, enter BIOS with **Delete**, put Windows Boot Manager first under **Boot / UEFI Hard Disk Drive BBS Priorities** (wording varies), and save. Secure Boot can remain enabled.
 
+## Check recent BitLocker startups
+
+Run `.\scripts\Get-StartupStatus.ps1` from the project directory. The `bitlocker_boot_history` section counts recorded starts that used a TPM v2 protector or a recovery password and gives the most recent timestamp for each. It uses a 14-day window by default. A recovery screen that was dismissed before Windows started may leave no recovery-password startup record. The separate `bitlocker_protection` field comes from a live query that requires Administrator access.
+
 ## Local rollback
 
 The local, ignored `test-v2.1.11/STARTUP-UNLOCK-RECOVERY.txt` contains the exact recovery and Administrator-shell rollback command for this PC. Its ownership record is kept locally under ProgramData, alongside a verified backup of the original EFI files and an exported BCD store in the private workspace.
